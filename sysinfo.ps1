@@ -8,6 +8,7 @@ Get-NetIPaddress
 DOMAIN INFO + other computers on network"
 get-adcomputer
 arp -a
+Invoke-Command -ComputerName $COMPUTERS -ScriptBlock {get-netipaddress | Select-Object PSComputerName, IPAddress}
 
 "------------------------------------------------------------------------------------------------------
 LISTENING PORTS:
