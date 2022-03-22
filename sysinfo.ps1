@@ -28,10 +28,17 @@ WINDOWS DEFENDER STATUS"
 Get-service Windefend
 sc query windefend
 
-#if (status -ne "running") {enable}
+if (status -ne "running") {enable}
 
 "------------------------------------------------------------------------------------------------------
 UPDATES
 ------------------------------------------------------------------------------------------------------"
 Update-MpSignature
 Get-WindowsUpdate -AcceptAll -Install
+
+
+"------------------------------------------------------------------------------------------------------
+SCAN NETWORK FOR OPEN PORTS
+------------------------------------------------------------------------------------------------------"
+Import-Module .\port-scan.ps1
+port-scan-tcp 192.168.50.1 80
