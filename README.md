@@ -1,7 +1,7 @@
-# Powershell Basic Security Audit
+# Powershell Basic Security Audit Lab
 ---
-This Lab teaches commands for a basic security audit of Windows computers in a domain. 
-We will split the work to the following areas assigned to each of us:
+This Lab teaches commands to make a basic security audit of Windows computers in a domain. 
+The Lab includes the following sections, split between Lucas and Daxton:
 
 # Lucas
 * port-scan.ps1 - Scan for open ports 
@@ -9,6 +9,6 @@ We will split the work to the following areas assigned to each of us:
 * Set Computer to automatically lock screen
 
 # Daxton
-* updates.ps1 - Updates the machine + antimalware
-* Display basic machine info/domain information 
-* Check for scheduled tasks 
+* sysinfo.ps1 - Important system/domain info that is needed for the security audit 
+* updates.ps1 - Update the machine + antimalware
+* scheduledtasks.ps1 - checks for scheduled tasks, including those that could be malicious
