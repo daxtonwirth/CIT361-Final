@@ -13,10 +13,29 @@ Get-NetIPaddress | sort ifIndex | Select-Object ifIndex, IPAddress, InterfaceAli
 
 "------------------------------------------------------------------------------------------------------"
 "DOMAIN INFO + other computers on network"
+# If the computer is a member of a domain, it is essential to get information about the domain so we know what we are working with for the audit
 "------------------------------------------------------------------------------------------------------"
 get-adcomputer
+
+# It is helpful to put the computers in a single variable for later use. This can be done with the following command:
+$COMPUTERS = Get-ADComputer -Filter * | %{$_.name} 
+
 arp -a
+
+# It is easy to run commands on domain computers with Invoke-Command. Here is an example that gets the IP info for the computers in the domain. 
+# The $COMPUTERS variable is an array that contains all of the computer names in the domain as seen in the command above.
 Invoke-Command -ComputerName $COMPUTERS -ScriptBlock {get-netipaddress | Select-Object PSComputerName, IPAddress}
+
+# Other important commands to be run on other computers could include:
+# Powershell version
+Invoke-Command -ComputerName $COMPUTERS -ScriptBlock {$psversiontable} 
+# OS and version
+get-ciminstance Win32_OperatingSystem -ComputerName $COMPUTERS -Property * name, version, OSArchitecture, BuildNumber, Buildtype 
+# Mac address
+Invoke-Command -ComputerName $comp -ScriptBlock {get-netadapter | Select-Object name, macaddress}
+# Services running on computer
+$counter=0
+get-ciminstance win32_service -ComputerName DC | % {if ($_.state -eq 'Running') {$counter+=1}}
 
 "------------------------------------------------------------------------------------------------------"
 "LISTENING PORTS:"
@@ -36,10 +55,6 @@ sc query windefend
 
 # if (status -ne "running") {enable}
 
-"------------------------------------------------------------------------------------------------------"
-"UPDATES"
-"------------------------------------------------------------------------------------------------------"
-.\updates.ps1
 
 "------------------------------------------------------------------------------------------------------"
 "SCAN NETWORK FOR OPEN PORTS"
