@@ -55,9 +55,18 @@ sc query windefend
 
 # if (status -ne "running") {enable}
 
+Get-NetFirewallRule -Direction Inbound | Select-Object -Property DisplayName,Profile,Enabled
 
 "------------------------------------------------------------------------------------------------------"
 "SCAN NETWORK FOR OPEN PORTS"
 "------------------------------------------------------------------------------------------------------"
 Import-Module .\port-scan.ps1
 port-scan-tcp 192.168.50.1 80
+
+
+
+"-----------------------------------------------------------------------------------------------------"
+"CHANGING LOCK SCREEN TIMEOUT SETTINGS"
+"-----------------------------------------------------------------------------------------------------"
+powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOCONLOCK "<time in seconds>"
+powercfg.exe /setactive SCHEME_CURRENT
