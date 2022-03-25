@@ -23,7 +23,8 @@ Install the availible updates:
 Install-WindowsUpdate
 ```
 Automatically gets and installs all updates
-```Get-WindowsUpdate -AcceptAll -Install -AutoReboot
+```
+Get-WindowsUpdate -AcceptAll -Install -AutoReboot
 ```
 Example that installs specific KB:
 ```
