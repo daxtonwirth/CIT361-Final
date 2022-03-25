@@ -1,8 +1,8 @@
-"------------------------------------------------------------------------------------------------------"
-"BASIC SYSTEM INFO"
-# In order to start a security audit, we need to get the basic system info and these commands will do that"
-"------------------------------------------------------------------------------------------------------"
-# Get-ComputerInfo (This command corresponds to systeminfo in cmd)
+<#------------------------------------------------------------------------------------------------------
+BASIC SYSTEM INFO
+ In order to start a security audit, we need to get the basic system info and these commands will do that
+------------------------------------------------------------------------------------------------------#>
+Get-ComputerInfo (This command corresponds to systeminfo in cmd)
 # This gives a lot of info we probably do not need. Here is one that filters out the info that is not as important:
 Get-ComputerInfo | Select-Object OsVersion, WindowsRegisteredOwner, CsDomainRole, csname, OsRegisteredUser, OsArchitecture, OsNumberOfUsers, OsNumberOfProcesses, OsMaxProcessMemorySize, OsName, CsModel
 
@@ -11,10 +11,10 @@ Get-ComputerInfo | Select-Object OsVersion, WindowsRegisteredOwner, CsDomainRole
 Get-NetIPaddress | sort ifIndex | Select-Object ifIndex, IPAddress, InterfaceAlias
 
 
-"------------------------------------------------------------------------------------------------------"
-"DOMAIN INFO + other computers on network"
-# If the computer is a member of a domain, it is essential to get information about the domain so we know what we are working with for the audit
-"------------------------------------------------------------------------------------------------------"
+<#------------------------------------------------------------------------------------------------------
+DOMAIN INFO + other computers on network
+ If the computer is a member of a domain, it is essential to get information about the domain so we know what we are working with for the audit
+------------------------------------------------------------------------------------------------------#>
 get-adcomputer
 
 # It is helpful to put the computers in a single variable for later use. This can be done with the following command:
@@ -37,6 +37,25 @@ Invoke-Command -ComputerName $comp -ScriptBlock {get-netadapter | Select-Object 
 $counter=0
 get-ciminstance win32_service -ComputerName DC | % {if ($_.state -eq 'Running') {$counter+=1}}
 
+
+
+To update passwords on the domain: 
+Set-ADAccountPassword
+
+<# Changing weak passwords can be very important but also be a burden without automation
+First in order to get the users in the domain, we can use the following command:
+$users = Get-ADUser -Filter * -SearchBase $domain -Properties DistinguishedName
+
+Then we can reset the password with the below options. Feel free to change the switches to whatever works best for you:
+
+$users | % {Select-Object -expand DistinguishedName | Set-ADAccountPassword -Identity $name -Reset -NewPassword (ConvertTo-SecureString -AsPlainText $password)}
+
+There are also other commands that can change certain types of user including the following which only changes users in the user's group:
+
+dsquery user ou=Users,dc=NAME | dsmod user -pwd STR0NGP4$$W0RD
+#>
+
+
 "------------------------------------------------------------------------------------------------------"
 "LISTENING PORTS:"
 "------------------------------------------------------------------------------------------------------"
@@ -47,26 +66,35 @@ netstat -ano
 "------------------------------------------------------------------------------------------------------"
 schtasks /query /fo LIST /v
 
-"------------------------------------------------------------------------------------------------------"
-"WINDOWS DEFENDER STATUS + FIREWALL RULES"
-"------------------------------------------------------------------------------------------------------"
+<#------------------------------------------------------------------------------------------------------
+WINDOWS DEFENDER STATUS + FIREWALL RULES
+------------------------------------------------------------------------------------------------------#>
 Get-service Windefend
 sc query windefend
 
-# if (status -ne "running") {enable}
+# Check the status:
+Get-MpComputerStatus | select RealTimeProtectionEnabled
+# For a domain:
+Get-CimInstance -ComputerName MyRemoteServer -Query 'Select * from MSFT_MPComputerStatus' -Namespace 'root\Microsoft\Windows\Defender' | Select RealTimeProtectionEnabled,PSComputerName
+
+# If the firewall is not disabled, this command can enable it:
+set-MpPreference -DisableRealtimeMonitoring $False
+
+# Confirm it is enabled:
+Get-MpPreference | Select-Object DisableRealtimeMonitoring
 
 Get-NetFirewallRule -Direction Inbound | Select-Object -Property DisplayName,Profile,Enabled
 
-"------------------------------------------------------------------------------------------------------"
-"SCAN NETWORK FOR OPEN PORTS"
-"------------------------------------------------------------------------------------------------------"
+<#------------------------------------------------------------------------------------------------------
+SCAN NETWORK FOR OPEN PORTS
+------------------------------------------------------------------------------------------------------#>
 Import-Module .\port-scan.ps1
 port-scan-tcp 192.168.50.1 80
 
 
 
-"-----------------------------------------------------------------------------------------------------"
-"CHANGING LOCK SCREEN TIMEOUT SETTINGS"
-"-----------------------------------------------------------------------------------------------------"
+<#-----------------------------------------------------------------------------------------------------
+CHANGING LOCK SCREEN TIMEOUT SETTINGS
+-----------------------------------------------------------------------------------------------------#>
 powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOCONLOCK "<time in seconds>"
 powercfg.exe /setactive SCHEME_CURRENT
