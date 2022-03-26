@@ -1,64 +1,81 @@
 # BASIC SYSTEM INFO
 In order to start a security audit, we need to get the basic system info that can be done with the following commands
-
-This command corresponds to systeminfo in cmd
+This command corresponds to systeminfo in cmd: 
 ```
 Get-ComputerInfo
 ``` 
-This gives a lot of info we probably do not need. Here is one that filters out the info that is not as important:
+This gives us more information than we need. Filter the output with "Select-Object" to only the interesting ones. I selected these objects as important to gaining necessary info about the system:
 ```
 Get-ComputerInfo | Select-Object OsVersion, WindowsRegisteredOwner, CsDomainRole, csname, OsRegisteredUser, OsArchitecture, OsNumberOfUsers, OsNumberOfProcesses, OsMaxProcessMemorySize, OsName, CsModel
 ```
 
 ## IP INFO 
-This command can also have a lot of info so we can make it easier to read as a table adding "| ft", but still too much info so we can filter out unnecessary info:
+This command can also have too much info so we can make it easier to read as a table using "ft" (Format-Table):
+```
+Get-NetIPaddress | ft
+```
+
+But, this can still be too much info so I chose to only select these objects (I also sorted it to make it easier to read):
 ```
 Get-NetIPaddress | sort ifIndex | Select-Object ifIndex, IPAddress, InterfaceAlias
 ```
 ## LISTENING PORTS
+We can get the listening port with the following command (netstat -ano would be equivilant in cmd): 
 ```
-netstat -ano
+Get-NetTcpConnection 
 ```
+Again, we can make it prettier:
+```
+Get-NetTcpConnection | sort LocalPort | Group-Object LocalPort
+```
+
 ## SCHEDULED TASKS
+Scheduled tasks can also be a good place to look for potentially suspicious activity (schtasks /query /fo LIST /v):
 ```
-schtasks /query /fo LIST /v
+Get-ScheduledTask 
+```
+Look for ones you do not recognize, especially ones NOT in the \Microsoft\Windows\ folder, and make sure they are legitimate. To make it pretty (Remove ones that are disabled and sort):
+```
+Get-ScheduledTask | Sort-Object State , TaskName | % {if ($_.state -ne "Disabled") {$_}}
 ```
 
 ---
 # DOMAIN INFO + other computers on network
 If the computer is a member of a domain, it is essential to get information about the domain so we know what we are working with for the audit
+* If you are registered for this class, you can get access to practice: ssh USERNAME@cit361-lab.citwdd.net -p 443
 First, get the info about the computers on the domain:
 ```
-get-adcomputer
+get-adcomputer -Filter * | ft
 ```
 
 It is helpful to put the computers in a single variable for later use. This can be done with the following command:
 ```
-$COMPUTERS = Get-ADComputer -Filter * | %{$_.name} 
+$COMPUTERS = Get-ADComputer -Filter * | % {$_.name} 
 ```
-We can also find what ip addresses the machine has contacted with to get more into with the arp table:
+We can also find what ip addresses the machine has contacted with to get more into with the arp table ("arp -a" in CMD):
 ```
-arp -a
+Get-NetNeighbor 
+```
+To make this much prettier, you can filter by removing the broadcast, multicast, IPv6, and link local addresses:
+```
+Get-NetNeighbor | sort IPAddress | % {if (!($_.IPAddress -match '.255') -and !($_.IPAddress -match '224.') -and !($_.IPAddress -match 'ff02:') -and !($_.IPAddress -match 'fe80:')){$_}}
 ```
 
-It is easy to run commands on domain computers with Invoke-Command. Here is an example that gets the IP info for the computers in the domain. 
-The $COMPUTERS variable is an array that contains all of the computer names in the domain as seen in the command above.
+## Run commands on other computers in domain
+It is easy to run commands on domain computers with Invoke-Command. We can run all of the previous commands shown above on other computers in the domain. Here is an example that gets the IP info for the computers in the domain. (The $COMPUTERS variable is an array that contains all of the computer names in the domain as seen in the command above):
 ```
 Invoke-Command -ComputerName $COMPUTERS -ScriptBlock {get-netipaddress | Select-Object PSComputerName, IPAddress}
 ```
 
 Other important commands to be run on other computers could include:
-* Powershell version
+* Powershell version (some commands may not run properly depending on version)
 ```
 Invoke-Command -ComputerName $COMPUTERS -ScriptBlock {$psversiontable} 
 ```
 * OS and version
+This command was made to remote to other computers with -ComputerName:
 ```
 get-ciminstance Win32_OperatingSystem -ComputerName $COMPUTERS -Property * name, version, OSArchitecture, BuildNumber, Buildtype 
-```
-* Mac address
-```
-Invoke-Command -ComputerName $comp -ScriptBlock {get-netadapter | Select-Object name, macaddress}
 ```
 * Services running on computer
 ```
