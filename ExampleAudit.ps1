@@ -1,33 +1,55 @@
 "------------------------------------------------------------------------------------------------------"
 "BASIC SYSTEM INFO"
 "------------------------------------------------------------------------------------------------------"
-Get-ComputerInfo | Select-Object OsVersion, WindowsRegisteredOwner, CsDomainRole, csname, OsRegisteredUser, OsArchitecture, OsNumberOfUsers, OsNumberOfProcesses, OsMaxProcessMemorySize, OsName, CsModel
+Get-ComputerInfo | Select-Object CsName, OsName, OsVersion, CsDomainRole, WindowsRegisteredOwner, OsRegisteredUser, OsArchitecture, OsNumberOfUsers, OsNumberOfProcesses, OsMaxProcessMemorySize, CsModel
 
 "IP INFO"  
-Get-NetIPaddress | sort ifIndex | Select-Object ifIndex, IPAddress, InterfaceAlias
+Get-NetIPaddress | sort ifIndex | Select-Object ifIndex, IPAddress, InterfaceAlias | ft
 
+"Ports"
+get-nettcpconnection | select local*,remote*,state,@{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} |?{$_.localport -le 49000} |sort localport |group-object localport,process| ft
+
+"Tasks"
+Get-ScheduledTask | Sort-Object State , TaskName | % {if ($_.state -ne "Disabled") {$_}} 
+
+"ACTIVE USERS (consider using get-aduser for domain users)"
+Get-LocalUser | ? {$_.enabled -eq "True"} | Select-Object Name, Enabled, PrincipalSource, ObjectClass, Description, LastLogin, passwordlastset |ft
 
 "------------------------------------------------------------------------------------------------------"
 "DOMAIN INFO"
 "------------------------------------------------------------------------------------------------------"
-get-adcomputer
+"Domain Computers"
+Get-ADComputer -Filter * -Properties ipv4Address, OperatingSystem | Select-Object Name, IPv4Address, OperatingSystem, Enabled | ft 
 
-$COMPUTERS = Get-ADComputer -Filter * | %{$_.name} 
+"ARP"
+Get-NetNeighbor | sort IPAddress | % {if (!($_.IPAddress -match '.255') -and !($_.IPAddress -match '224.') -and !($_.IPAddress -match 'ff02:') -and !($_.IPAddress -match 'fe80:')){$_}} | Select-Object ifindex, ipaddress, LinkLayerAddress, interfacealias | ft
 
-arp -a
+"Users"
+get-aduser -Filter * | sort name | Select-Object Name, enabled, objectclass, DistinguishedName
 
-get-ciminstance Win32_OperatingSystem -ComputerName $COMPUTERS -Property * name, version, OSArchitecture, BuildNumber, Buildtype 
+"Domain Admins"
+Get-ADGroupMember Administrators 
 
-<#------------------------------------------------------------------------------------------------------
-WINDOWS DEFENDER STATUS + FIREWALL RULES
-------------------------------------------------------------------------------------------------------#>
-if (set-MpPreference -DisableRealtimeMonitoring $True) {
+"WinRM (Disable if not using: stop-service winrm)"
+get-service winrm
+
+"------------------------------------------------------------------------------------------------------"
+"Updates"
+"------------------------------------------------------------------------------------------------------"
+"Windows update"
+Install-Module PSWindowsUpdate 
+Get-WindowsUpdate -AcceptAll -Install -AutoReboot 
+
+"------------------------------------------------------------------------------------------------------"
+"WINDOWS DEFENDER"
+"------------------------------------------------------------------------------------------------------"
 set-MpPreference -DisableRealtimeMonitoring $False
-}
+Start-service windefend 
+Get-MpPreference | Select-Object DisableRealtimeMonitoring
 
-Get-service Windefend
-
+"------------------------------------------------------------------------------------------------------"
 "FIREWALL STATUS"
+"------------------------------------------------------------------------------------------------------"
 Get-NetFirewallRule -Direction Inbound | Select-Object -Property DisplayName,Profile,Enabled
 
 "------------------------------------------------------------------------------------------------------"
@@ -35,7 +57,6 @@ Get-NetFirewallRule -Direction Inbound | Select-Object -Property DisplayName,Pro
 "------------------------------------------------------------------------------------------------------"
 Import-Module .\port-scan.ps1
 port-scan-tcp 192.168.50.1 80
-
 
 "-----------------------------------------------------------------------------------------------------"
 "CHANGING LOCK SCREEN TIMEOUT SETTINGS"
